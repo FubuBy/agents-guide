@@ -1,7 +1,7 @@
 # Implement Jira Task — Harness Workflow
 
 A controlled, paradigm-agnostic pipeline for implementing a task from Jira.
-This rule describes **the process and the gates**. The **commands and conventions** (how to build, lint, test, what rules to follow) are read from the project's own rules — `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, and any `*.mdc` / `*.rules` files the repository provides.
+This rule describes **the process and the gates**. The **commands and conventions** (how to build, lint, test, what rules to follow) come from the project's own documentation — `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, and any `*.mdc` / `*.rules` files the repository provides.
 
 The pipeline:
 
@@ -31,15 +31,18 @@ Use `unknown-<timestamp>` if no key is available. Suggest adding the chosen path
 
 Do NOT touch git — no branches, no commits, no PRs. Artifacts live on disk only.
 
-## Step 0.5 — Read project rules
+## Step 0.5 — Working notes (optional)
 
-Before doing anything else, read the project's own instructions. Produce `00-rules.md` listing:
+You may keep a running scratchpad at `notes.md` inside the artifacts directory.
+Use it to record anything that was non-obvious to figure out and will be needed again later in the pipeline:
 
-- **Sources read**: every rule/instruction file found in the repository (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, any `*.mdc` / `*.rules` files, CI files like `.github/workflows/*` if they document canonical commands).
-- **Project commands** to use during this run, extracted verbatim from those sources: `build`, `typecheck`, `lint`, `test`, `test-single` (and any others the project mandates). If a category is not defined — record `not defined by project rules`.
-- **Conventions** that constrain implementation (architecture, layering, naming, error handling, security, banned constructs).
+- A command the user confirmed when project docs were ambiguous ("use `pnpm test`, not `npm test`").
+- A convention that took digging to find ("error codes live in `src/errors/codes.ts`").
+- A constraint the user clarified mid-run ("do not touch the public API of module X").
 
-Do not invent commands or conventions that are not in the project's rules. If something is ambiguous or missing — **stop and ask** the user; record the answer in `00-rules.md` and continue.
+This file is **not required**. Do not invent content for it. Do not pad it. Skip it entirely if there is nothing worth caching.
+
+Subsequent steps may read `notes.md` if it exists, but they must not depend on it.
 
 ## Step 1 — JIRA fetch
 
@@ -137,7 +140,7 @@ If all pass — write `01-task-gate-OK.md` (brief reasoning) and continue.
 
 ## Step 3 — Planning
 
-Goal: produce `02-plan.md` — a concrete implementation plan grounded in this codebase **and the project's own rules** (read in Step 0.5).
+Goal: produce `02-plan.md` — a concrete implementation plan grounded in this codebase and the project's own conventions.
 
 Fill the sections that apply; mark the rest `n/a` (don't silently skip).
 
@@ -151,7 +154,7 @@ Fill the sections that apply; mark the rest `n/a` (don't silently skip).
 - **Rollout & rollback** — feature flag? gradual rollout? backwards compat?
 - **Out of scope** — explicitly list what this task does NOT do.
 - **Risks & open questions** — explicit list.
-- **Rules alignment** — for each plan item, reference the project rule(s) from `00-rules.md` that constrain it.
+- **Rules alignment** — for each plan item, reference the project rule that constrains it (cite the source file, e.g. `AGENTS.md#error-handling`). If no rule applies, mark `none`.
 
 ## Step 4 — Gate G2 (plan quality gate)
 
@@ -159,7 +162,7 @@ Verify the plan satisfies ALL of:
 
 - [ ] Every acceptance criterion from `01-task.md` is mapped to at least one plan item.
 - [ ] All file/module paths are real (verified, not invented).
-- [ ] No project conventions or rules violated (cross-checked against `00-rules.md`).
+- [ ] No project conventions or rules violated (cross-checked against project docs — `AGENTS.md`, README, any rules files the repo provides).
 - [ ] Public contract changes are backwards-compatible OR there is an explicit migration/rollout plan.
 - [ ] Test plan covers the public surface and the acceptance criteria.
 - [ ] Risks and open questions are listed (not silently swept under the rug).
@@ -170,23 +173,35 @@ On success — write `02-plan-gate-OK.md` and continue.
 
 ## Step 5 — Implement
 
-Make the code changes following `02-plan.md` and the conventions in `00-rules.md`. Surgical edits only — every line traceable to the plan.
+Make the code changes following `02-plan.md` and the project's own conventions. Surgical edits only — every line traceable to the plan.
 
 Save `03-implement.md` with: list of changed/created files, short rationale per file, deviations from the plan (with reasons).
 
 ## Step 6 — Build loop
 
-Run the **build / typecheck command(s) declared in `00-rules.md`**. If the project defines none, write `04a-build-NONE.md` and skip this step.
+Run the project's **build / typecheck** command. Find it in this order:
+
+1. Project documentation (`AGENTS.md`, `CONTRIBUTING.md`, `README.md`, CI configs, any `*.mdc` / `*.rules` files).
+2. `notes.md` from this run, if a prior step already resolved this with the user.
+3. If still unclear — **stop and ask the user once**. Record the answer in `notes.md` so the round-2 step does not re-ask.
+
+If the project genuinely has no build/typecheck step — write `04a-build-NONE.md` and skip this step.
 
 If failures:
 - Apply **FIX** in code → re-run → loop.
 - Hard cap: 5 iterations. On cap → write `04a-build-STUCK.md`, stop, ask the user.
 
-Save `04a-build.md` (commands used, iterations, fixes applied).
+Save `04a-build.md` (command used, iterations, fixes applied).
 
 ## Step 7 — Linter loop
 
-Run the **lint command(s) declared in `00-rules.md`**. If the project defines none, write `04-lint-NONE.md` and continue (suggest adding lint in `08-summary.md` as a follow-up — do not introduce it as part of this task).
+Run the project's **lint** command. Find it in this order:
+
+1. Project documentation.
+2. `notes.md` from this run, if a prior step already resolved this with the user.
+3. If still unclear — **stop and ask the user once**. Record the answer in `notes.md` so the round-2 step does not re-ask.
+
+If the project has no linter at all — write `04-lint-NONE.md` and continue (mention in `08-summary.md` as a follow-up — do not introduce one as part of this task).
 
 If errors:
 - Apply **FIX** in code (do not suppress without justification — suppressions require an explicit comment with reasoning).
@@ -197,21 +212,26 @@ Save `04-lint.md` (commands used, iterations, fixes applied).
 
 ## Step 8 — Tests loop
 
-Run the **test command(s) declared in `00-rules.md`**. Prefer the targeted command (single file / single test) when applicable; fall back to the full suite otherwise.
+Run the project's **test** command. Find it in this order:
+
+1. Project documentation. Prefer a targeted command (single file / single test) when applicable; fall back to the full suite otherwise.
+2. `notes.md` from this run, if a prior step already resolved this with the user.
+3. If still unclear — **stop and ask the user once**. Record the answer in `notes.md` so the round-2 step does not re-ask.
+
+If the project has no test framework at all — write `05-tests-NONE.md` and **stop to ask** the user: continue without tests, or bootstrap a framework first? Don't silently skip.
 
 If failures:
 - Apply **FIX** (in code or in test, whichever is correct — not the test if the test reflects the spec).
 - Re-run → loop.
 - Hard cap: 5 iterations. On cap → write `05-tests-STUCK.md`, stop, ask the user.
 
-If the project has no test framework defined in its rules — **stop and ask**: continue without tests, or bootstrap a test framework first? Don't silently skip. Record the answer in `05-tests-NONE.md`.
-
 Save `05-tests.md` (commands used, iterations, last output tail, count of tests run/passed).
 
 ## Step 9 — Code Review (self-review)
 
 Re-read the full diff against:
-1. The project rules captured in `00-rules.md`.
+
+1. The project's own rules and conventions (from `AGENTS.md`, etc.); use `notes.md` as a shortcut if it captured anything relevant.
 2. The plan in `02-plan.md`.
 3. General hygiene: simplicity, surgical scope, naming, error handling, security, performance, accessibility, observability, doc updates.
 
@@ -245,21 +265,20 @@ On success — write `07-fix-gate-OK.md` and continue.
 
 ## Step 13 — Build loop (round 2)
 
-Same as Step 6.
+Same as Step 6. Reuse the command from `notes.md`; do not re-ask the user.
 
 ## Step 14 — Linter loop (round 2)
 
-Same as Step 7.
+Same as Step 7. Reuse the command from `notes.md`; do not re-ask the user.
 
 ## Step 15 — Tests loop (round 2)
 
-Same as Step 8. If the project's rules define a full-suite test command in addition to the targeted one, run the full suite here for confidence.
+Same as Step 8. Reuse the command from `notes.md`; do not re-ask the user. If the project documents a full-suite test command in addition to the targeted one, run the full suite here for confidence.
 
 ## Step 16 — END
 
 Produce `08-summary.md`:
 - Jira key + title.
-- Project rules sources used (one-line summary).
 - List of changed/created files.
 - Build: clean (iterations) or n/a.
 - Lint: clean (iterations) or none.
@@ -280,5 +299,5 @@ Report the summary and stop.
 - **Surgical changes only** — every changed line must trace to `02-plan.md` or a review finding.
 - **Artifacts are append-only within a run** — never delete prior step artifacts; if you have to redo a step, suffix `-v2`, `-v3`.
 - **No new dependencies** without an explicit plan item — they require user approval.
-- **No new tooling** introduced silently — if missing in project rules, ask.
+- **No new tooling** introduced silently — if missing in the project, ask.
 - **No Jira workflow gating** — the user has chosen to take this task; status of the task or its links is informational only.
