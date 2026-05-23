@@ -1,4 +1,4 @@
-# Implement Jira Task — Harness Workflow
+# Implement Jira Task — Gated Implementation Workflow
 
 A controlled, paradigm-agnostic pipeline for implementing a task from Jira.
 This rule describes **the process and the gates**. The **commands and conventions** (how to build, lint, test, what rules to follow) come from the project's own documentation — `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, and any `*.mdc` / `*.rules` files the repository provides.
